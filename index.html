@@ -3,77 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Private P2P Chat</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js">let peer = new Peer(), conn, password;
+    <title>Ultra Private Chat</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        :root { --bg: #0f172a; --panel: #1e293b; --accent: #38bdf8; --text: #f8fafc; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { padding: 10px; background: var(--panel); text-align: center; font-size: 0.8rem; border-bottom: 1px solid #334155; }
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .m { max-width: 85%; padding: 10px; border-radius: 12px; font-size: 0.9rem; word-break: break-word; }
+        .my { align-self: flex-end; background: #0369a1; }
+        .fr { align-self: flex-start; background: #334155; }
+        .sys { align-self: center; background: none; color: #64748b; font-size: 0.7rem; }
+        .input-box { padding: 15px; background: var(--panel); display: flex; gap: 8px; }
+        input { flex: 1; background: #0f172a; border: 1px solid #334155; padding: 10px; border-radius: 8px; color: white; outline: none; }
+        button { background: var(--accent); border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #overlay { position: fixed; inset: 0; background: var(--bg); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="overlay">
+    <h3>🔐 Вход в чат</h3>
+    <p style="font-size: 0.8rem; color: #94a3b8;">Ваш ID (нажми скопировать):<br>
+    <b id="m-id" onclick="copyId()" style="color:var(--accent); cursor:pointer; font-size: 1.1rem;">Загрузка...</b></p>
+    <input type="password" id="pass" placeholder="Общий пароль">
+    <input type="text" id="target-id" placeholder="ID друга">
+    <button onclick="start()" style="width: 100%; margin-top: 15px;">Установить связь</button>
+</div>
+
+<header id="status">PeerJS инициализация...</header>
+<div id="chat"></div>
+<div class="input-box">
+    <input type="text" id="msg" placeholder="Введите сообщение...">
+    <button onclick="send()">ОТПР.</button>
+</div>
+
+<script>
+    // Настройки для обхода блокировок роутеров (STUN-серверы Google)
+    const config = {
+        config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }, { 'urls': 'stun:stun1.l.google.com:19302' }] }
+    };
+    
+    let peer = new Peer(config), conn, password;
 
     peer.on('open', id => {
         document.getElementById('m-id').innerText = id;
-        console.log("Мой ID:", id);
+        document.getElementById('status').innerText = "Ваш ID готов. Ждем действий.";
     });
 
-    // Слушаем входящее подключение
+    peer.on('error', err => {
+        addMsg("Ошибка системы: " + err.type, 'sys');
+    });
+
+    // Когда кто-то стучится к нам
     peer.on('connection', c => {
-        conn = c;
         password = document.getElementById('pass').value;
-        if(!password) alert("Внимание: входящее соединение! Введите пароль, чтобы видеть текст.");
-        
-        // Ждем, пока канал данных будет готов
-        conn.on('open', () => {
-            setup();
-        });
+        if(!password) {
+            alert("Кто-то подключается! Срочно введите пароль и нажмите 'Установить связь', иначе сообщения не расшифруются.");
+            return;
+        }
+        conn = c;
+        bindEvents();
     });
 
     function start() {
         password = document.getElementById('pass').value;
         const target = document.getElementById('target-id').value;
         
-        if(!password) return alert("Введите пароль для шифрования!");
-        if(!target) return alert("Введите ID друга!");
-
-        conn = peer.connect(target);
+        if(!password) return alert("Без пароля шифрование не сработает!");
         
-        // КРИТИЧНО: ждем открытия, прежде чем прятать экран
-        conn.on('open', () => {
-            setup();
-        });
-
-        // Если возникла ошибка при подключении
-        conn.on('error', err => {
-            alert("Ошибка связи: " + err);
-        });
+        if(target) {
+            addMsg("Пытаюсь подключиться к " + target, 'sys');
+            conn = peer.connect(target, { reliable: true });
+            bindEvents();
+        } else {
+            document.getElementById('overlay').style.display = 'none';
+            addMsg("Режим ожидания. Передай свой ID другу.", 'sys');
+        }
     }
 
-    function setup() {
-        document.getElementById('overlay').style.display = 'none';
-        document.getElementById('status').innerText = "Защищенный чат активен";
-        
-        // Слушаем данные
+    function bindEvents() {
+        conn.on('open', () => {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('status').innerText = "СВЯЗЬ УСТАНОВЛЕНА";
+            addMsg("Канал связи открыт!", 'sys');
+        });
+
         conn.on('data', data => {
-            console.log("Получены зашифрованные данные:", data);
             try {
                 const bytes = CryptoJS.AES.decrypt(data, password);
                 const text = bytes.toString(CryptoJS.enc.Utf8);
-                
                 if(text) {
                     addMsg(text, 'fr');
                 } else {
-                    addMsg("Ошибка: неверный пароль или пустые данные", 'fr');
+                    addMsg("Получено зашифрованное сообщение (неверный пароль)", 'sys');
                 }
             } catch(e) {
-                addMsg("Критическая ошибка расшифровки", 'fr');
+                addMsg("Ошибка дешифровки", 'sys');
             }
+        });
+
+        conn.on('close', () => {
+            addMsg("Связь разорвана", 'sys');
+            document.getElementById('status').innerText = "Разъединено";
         });
     }
 
     function send() {
-        const val = document.getElementById('msg').value;
-        if(val && conn && conn.open) {
-            const crypted = CryptoJS.AES.encrypt(val, password).toString();
+        const input = document.getElementById('msg');
+        if(input.value && conn && conn.open) {
+            const crypted = CryptoJS.AES.encrypt(input.value, password).toString();
             conn.send(crypted);
-            addMsg(val, 'my');
-            document.getElementById('msg').value = '';
-        } else {
-            alert("Соединение еще не установлено или разорвано");
+            addMsg(input.value, 'my');
+            input.value = '';
+        } else if (!conn || !conn.open) {
+            addMsg("Ошибка: Соединение не активно", 'sys');
         }
     }
 
@@ -86,192 +131,9 @@
     }
 
     function copyId() {
-        navigator.clipboard.writeText(document.getElementById('m-id').innerText);
-        alert("ID скопирован");
-    }</script>
-    <style>
-        :root {
-            --bg-color: #0f172a;
-            --chat-bg: #1e293b;
-            --text-color: #f8fafc;
-            --accent: #38bdf8;
-            --my-msg: #0369a1;
-            --friend-msg: #334155;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Шапка */
-        header {
-            padding: 15px;
-            background: var(--chat-bg);
-            text-align: center;
-            border-bottom: 1px solid #334155;
-        }
-
-        #my-id-display {
-            font-size: 0.8rem;
-            color: var(--accent);
-            word-break: break-all;
-            cursor: pointer;
-        }
-
-        /* Зона чата */
-        #chat-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .msg {
-            max-width: 80%;
-            padding: 10px 15px;
-            border-radius: 18px;
-            font-size: 0.95rem;
-            line-height: 1.4;
-        }
-
-        .my { align-self: flex-end; background: var(--my-msg); border-bottom-right-radius: 4px; }
-        .friend { align-self: flex-start; background: var(--friend-msg); border-bottom-left-radius: 4px; }
-
-        /* Панель ввода */
-        .input-area {
-            padding: 15px;
-            background: var(--chat-bg);
-            display: flex;
-            gap: 10px;
-        }
-
-        input {
-            flex: 1;
-            background: #0f172a;
-            border: 1px solid #334155;
-            padding: 10px;
-            border-radius: 10px;
-            color: white;
-            outline: none;
-        }
-
-        button {
-            background: var(--accent);
-            border: none;
-            padding: 10px 15px;
-            border-radius: 10px;
-            color: #0f172a;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        /* Окно подключения */
-        #setup-overlay {
-            position: fixed;
-            inset: 0;
-            background: var(--bg-color);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            z-index: 100;
-        }
-    </style>
-</head>
-<body>
-
-    <div id="setup-overlay">
-        <h2>Личный чат</h2>
-        <p>Ваш ID (нажмите, чтобы скопировать):</p>
-        <div id="my-id-display" onclick="copyId()">Загрузка...</div>
-        <br>
-        <input type="text" id="peer-id-input" placeholder="Вставьте ID друга">
-        <br>
-        <button onclick="connectToFriend()">Соединиться</button>
-    </div>
-
-    <header>
-        <div id="status">Ожидание подключения...</div>
-    </header>
-
-    <div id="chat-container"></div>
-
-    <div class="input-area">
-        <input type="text" id="msg-input" placeholder="Сообщение...">
-        <button onclick="sendMsg()">></button>
-    </div>
-
-    <script>
-        let peer = new Peer(); 
-        let conn;
-
-        // 1. Генерируем твой ID
-        peer.on('open', (id) => {
-            document.getElementById('my-id-display').innerText = id;
-        });
-
-        // 2. Слушаем входящие
-        peer.on('connection', (c) => {
-            conn = c;
-            initChat();
-        });
-
-        // 3. Подключаемся к другу
-        function connectToFriend() {
-            const friendId = document.getElementById('peer-id-input').value;
-            if (friendId) {
-                conn = peer.connect(friendId);
-                initChat();
-            }
-        }
-
-        function initChat() {
-            document.getElementById('setup-overlay').style.display = 'none';
-            document.getElementById('status').innerText = "На связи";
-            
-            conn.on('data', (data) => {
-                addMessage(data, 'friend');
-            });
-
-            conn.on('close', () => {
-                alert("Связь потеряна");
-                location.reload();
-            });
-        }
-
-        function sendMsg() {
-            const input = document.getElementById('msg-input');
-            if (input.value && conn) {
-                conn.send(input.value);
-                addMessage(input.value, 'my');
-                input.value = '';
-            }
-        }
-
-        function addMessage(text, type) {
-            const container = document.getElementById('chat-container');
-            const div = document.createElement('div');
-            div.className = `msg ${type}`;
-            div.innerText = text;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function copyId() {
-            const idText = document.getElementById('my-id-display').innerText;
-            navigator.clipboard.writeText(idText);
-            alert("ID скопирован! Отправь его другу.");
-        }
-    </script>
+        const idText = document.getElementById('m-id').innerText;
+        navigator.clipboard.writeText(idText).then(() => alert("ID скопирован"));
+    }
+</script>
 </body>
 </html>
