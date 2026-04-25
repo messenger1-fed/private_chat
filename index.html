@@ -4,7 +4,91 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Private P2P Chat</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js">let peer = new Peer(), conn, password;
+
+    peer.on('open', id => {
+        document.getElementById('m-id').innerText = id;
+        console.log("Мой ID:", id);
+    });
+
+    // Слушаем входящее подключение
+    peer.on('connection', c => {
+        conn = c;
+        password = document.getElementById('pass').value;
+        if(!password) alert("Внимание: входящее соединение! Введите пароль, чтобы видеть текст.");
+        
+        // Ждем, пока канал данных будет готов
+        conn.on('open', () => {
+            setup();
+        });
+    });
+
+    function start() {
+        password = document.getElementById('pass').value;
+        const target = document.getElementById('target-id').value;
+        
+        if(!password) return alert("Введите пароль для шифрования!");
+        if(!target) return alert("Введите ID друга!");
+
+        conn = peer.connect(target);
+        
+        // КРИТИЧНО: ждем открытия, прежде чем прятать экран
+        conn.on('open', () => {
+            setup();
+        });
+
+        // Если возникла ошибка при подключении
+        conn.on('error', err => {
+            alert("Ошибка связи: " + err);
+        });
+    }
+
+    function setup() {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('status').innerText = "Защищенный чат активен";
+        
+        // Слушаем данные
+        conn.on('data', data => {
+            console.log("Получены зашифрованные данные:", data);
+            try {
+                const bytes = CryptoJS.AES.decrypt(data, password);
+                const text = bytes.toString(CryptoJS.enc.Utf8);
+                
+                if(text) {
+                    addMsg(text, 'fr');
+                } else {
+                    addMsg("Ошибка: неверный пароль или пустые данные", 'fr');
+                }
+            } catch(e) {
+                addMsg("Критическая ошибка расшифровки", 'fr');
+            }
+        });
+    }
+
+    function send() {
+        const val = document.getElementById('msg').value;
+        if(val && conn && conn.open) {
+            const crypted = CryptoJS.AES.encrypt(val, password).toString();
+            conn.send(crypted);
+            addMsg(val, 'my');
+            document.getElementById('msg').value = '';
+        } else {
+            alert("Соединение еще не установлено или разорвано");
+        }
+    }
+
+    function addMsg(t, cl) {
+        const d = document.createElement('div');
+        d.className = `m ${cl}`;
+        d.innerText = t;
+        document.getElementById('chat').appendChild(d);
+        document.getElementById('chat').scrollTop = 99999;
+    }
+
+    function copyId() {
+        navigator.clipboard.writeText(document.getElementById('m-id').innerText);
+        alert("ID скопирован");
+    }</script>
     <style>
         :root {
             --bg-color: #0f172a;
