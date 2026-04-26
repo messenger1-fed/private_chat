@@ -3,102 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Audi RS Premium Chat</title>
+    <title>Audi RS Premium</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        :root { 
-            --tg-bg: #0e1621; --tg-header: #17212b; --tg-my: #2b5278;
-            --tg-fr: #182533; --tg-accent: #2481cc; --tg-text: #f5f5f5;
-        }
-        
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
-        body, html { 
-            margin: 0; padding: 0; height: 100%; width: 100%;
-            font-family: -apple-system, system-ui, Roboto, sans-serif; 
-            background: var(--tg-bg); color: var(--tg-text); overflow: hidden;
+        body { 
+            margin: 0; background: #080a0c; color: white; 
+            font-family: -apple-system, system-ui, sans-serif;
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
         }
 
-        #main-layout { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
+        /* Фон с Audi - фиксированный и четкий */
+        #chat { 
+            flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px;
+            background: linear-gradient(rgba(8,10,12,0.85), rgba(8,10,12,0.85)), 
+                        url('https://images.unsplash.com/photo-1614162692292-7ac56d7fd761?q=80&w=1080&auto=format&fit=crop');
+            background-size: cover; background-position: center;
+        }
 
         header { 
-            height: 56px; background: var(--tg-header); display: flex; 
-            align-items: center; padding: 0 15px; gap: 12px; flex-shrink: 0;
-            border-bottom: 1px solid rgba(0,0,0,0.3); z-index: 20;
+            background: #17212b; padding: 10px 15px; display: flex; align-items: center; gap: 12px;
+            border-bottom: 1px solid #232e3c; flex-shrink: 0;
         }
-        .ava { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #ef5350, #b71c1c); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; background: #2481cc; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 
-        /* ИДЕАЛЬНЫЙ СКРОЛЛ */
-        #chat { 
-            flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; 
-            flex-direction: column; gap: 4px;
-            background: url('https://images.unsplash.com/photo-1542362567-b05503f3f5f4?q=80&w=1080&auto=format&fit=crop') center/cover no-repeat fixed;
-            position: relative; scroll-behavior: smooth;
-        }
-        #chat::before { content: ""; position: fixed; inset: 0; background: rgba(14, 22, 33, 0.82); pointer-events: none; }
-
-        .msg-container { display: flex; flex-direction: column; margin-bottom: 4px; position: relative; z-index: 5; max-width: 85%; }
-        .my-cont { align-self: flex-end; }
-        .fr-cont { align-self: flex-start; }
+        /* Стиль сообщений Телеграм */
+        .msg-box { display: flex; flex-direction: column; max-width: 85%; position: relative; margin-bottom: 5px; }
+        .my { align-self: flex-end; }
+        .fr { align-self: flex-start; }
 
         .bubble { 
-            padding: 7px 12px; border-radius: 12px; font-size: 0.95rem; line-height: 1.4;
-            position: relative; cursor: pointer; transition: background 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-            word-wrap: break-word;
+            padding: 8px 12px; border-radius: 15px; font-size: 15px; line-height: 1.4; 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3); cursor: pointer; position: relative;
         }
-        .my-cont .bubble { background: var(--tg-my); border-bottom-right-radius: 4px; color: white; }
-        .fr-cont .bubble { background: var(--tg-fr); border-bottom-left-radius: 4px; }
+        .my .bubble { background: #2b5278; border-bottom-right-radius: 4px; color: white; }
+        .fr .bubble { background: #182533; border-bottom-left-radius: 4px; color: #f5f5f5; }
 
-        /* МЕНЮ УПРАВЛЕНИЯ (в стиле контекстного меню) */
-        .msg-menu { 
-            display: none; position: absolute; top: -50px; background: #1c2836; 
-            border-radius: 10px; padding: 5px 10px; gap: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100;
-            border: 1px solid rgba(255,255,255,0.1); align-items: center;
-        }
-        .active .msg-menu { display: flex; }
-
-        .reply-ref { 
-            background: rgba(0,0,0,0.2); border-left: 2px solid #fff; 
-            padding: 3px 8px; margin-bottom: 5px; border-radius: 4px; font-size: 0.8rem; color: #81b3e0;
+        /* Ответы */
+        .reply-quote { 
+            background: rgba(0,0,0,0.2); border-left: 2px solid #5288b8; 
+            padding: 4px 8px; margin-bottom: 4px; border-radius: 4px; font-size: 13px; color: #add8e6;
         }
 
-        .reac-bar { display: flex; gap: 4px; margin-top: -6px; z-index: 6; }
-        .reac-chip { background: #1c2836; border-radius: 10px; padding: 1px 6px; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.1); }
+        /* Реакции */
+        .reac-wrap { display: flex; gap: 3px; margin-top: -6px; padding: 0 8px; z-index: 2; }
+        .reac { background: #1c2836; border-radius: 10px; padding: 1px 6px; font-size: 12px; border: 1px solid #2b5278; }
 
-        /* ВВОД СООБЩЕНИЯ */
-        .input-wrap { background: var(--tg-header); padding: 8px 12px; flex-shrink: 0; z-index: 20; }
-        #reply-line { display: none; padding: 5px 15px; border-left: 3px solid var(--tg-accent); align-items: center; justify-content: space-between; margin-bottom: 5px; }
-        .input-row { display: flex; align-items: center; gap: 12px; }
-        input { flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 1.05rem; padding: 5px 0; }
-        .btn-send { color: var(--tg-accent); font-weight: 600; cursor: pointer; border: none; background: none; font-size: 1.1rem; }
+        /* Меню действий (по клику) */
+        .msg-actions { 
+            display: none; background: #1c2836; border-radius: 12px; padding: 8px; 
+            gap: 12px; position: absolute; top: -45px; right: 0; z-index: 100;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #2b5278;
+        }
+        .active .msg-actions { display: flex; }
 
-        /* Время сообщения */
-        .time { font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-left: 8px; float: right; margin-top: 5px; }
+        /* Поле ввода */
+        .input-wrap { background: #17212b; padding: 10px; flex-shrink: 0; }
+        #reply-preview { 
+            display: none; background: #17212b; padding: 8px 15px; border-left: 3px solid #2481cc;
+            justify-content: space-between; align-items: center; border-bottom: 1px solid #000;
+        }
+        .input-row { display: flex; align-items: center; gap: 10px; }
+        input { flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 16px; padding: 5px; }
+        .send-btn { color: #2481cc; font-weight: bold; cursor: pointer; border: none; background: none; font-size: 16px; }
+
+        ::-webkit-scrollbar { width: 0; }
     </style>
 </head>
 <body>
 
-<div id="main-layout">
-    <header>
-        <div class="ava">RS</div>
-        <div style="flex:1">
-            <div style="font-weight: 600; font-size: 1rem;">Audi Exclusive</div>
-            <div style="font-size: 0.75rem; color: #708499;">premium connection</div>
-        </div>
-    </header>
+<header>
+    <div class="avatar">RS</div>
+    <div>
+        <div style="font-weight: 600;">FZ & AL Premium</div>
+        <div style="font-size: 12px; color: #708499;">online</div>
+    </div>
+</header>
 
-    <div id="chat" onclick="hideMenus()"></div>
+<div id="chat" onclick="closeMenus()"></div>
 
-    <div class="input-wrap">
-        <div id="reply-line">
-            <div id="reply-txt" style="font-size: 0.85rem; color: var(--tg-accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
-            <span onclick="cancelReply()" style="color:#708499; cursor:pointer; padding: 0 10px;">✕</span>
-        </div>
-        <div class="input-row">
-            <input type="text" id="msgInput" placeholder="Сообщение" autocomplete="off">
-            <button class="btn-send" onclick="send()">Отправить</button>
-        </div>
+<div class="input-wrap">
+    <div id="reply-preview">
+        <div id="reply-info" style="font-size: 13px; color: #2481cc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+        <div onclick="cancelReply()" style="color: #708499; cursor: pointer; padding-left: 10px;">✕</div>
+    </div>
+    <div class="input-row">
+        <input type="text" id="msgInput" placeholder="Сообщение" autocomplete="off">
+        <button class="send-btn" onclick="send()">Отправить</button>
     </div>
 </div>
 
@@ -119,14 +111,15 @@
 
     const myId = localStorage.getItem('chatUserId') || 'u' + Date.now();
     localStorage.setItem('chatUserId', myId);
-    let replyId = null;
+    let activeReplyId = null;
 
-    chatRef.on("value", snap => {
+    // СЛУШАЕМ БАЗУ (Вернул старые названия полей text и sender)
+    chatRef.on("value", (snap) => {
         const chat = document.getElementById('chat');
         chat.innerHTML = '';
-        const items = [];
-        snap.forEach(s => items.push({id: s.key, ...s.val()}));
-        items.forEach(m => render(m, items));
+        const allMsgs = [];
+        snap.forEach(s => allMsgs.push({id: s.key, ...s.val()}));
+        allMsgs.forEach(m => render(m, allMsgs));
         chat.scrollTop = chat.scrollHeight;
     });
 
@@ -134,74 +127,79 @@
         const inp = document.getElementById('msgInput');
         if (!inp.value.trim()) return;
         chatRef.push({
-            uid: myId, text: inp.value, 
-            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            rep: replyId, reacts: {}
+            sender: myId,
+            text: inp.value,
+            replyTo: activeReplyId,
+            reactions: {}
         });
         inp.value = "";
         cancelReply();
     }
 
     function render(m, all) {
-        const isMy = m.uid === myId;
-        const cont = document.createElement('div');
-        cont.className = `msg-container ${isMy ? 'my-cont' : 'fr-cont'}`;
-        cont.id = 'm-' + m.id;
+        const isMy = m.sender === myId;
+        const div = document.createElement('div');
+        div.className = `msg-box ${isMy ? 'my' : 'fr'}`;
+        div.id = 'box-' + m.id;
 
-        let repHtml = '';
-        if(m.rep) {
-            const origin = all.find(x => x.id === m.rep);
-            repHtml = `<div class="reply-ref">${origin ? origin.text : 'Удалено'}</div>`;
+        // Рендер ответа
+        let replyHtml = '';
+        if(m.replyTo) {
+            const parent = all.find(x => x.id === m.replyTo);
+            replyHtml = `<div class="reply-quote">${parent ? parent.text : 'Сообщение удалено'}</div>`;
         }
 
-        let reacs = '<div class="reac-bar">';
-        if(m.reacts) Object.values(m.reacts).forEach(e => reacs += `<span class="reac-chip">${e}</span>`);
-        reacs += '</div>';
+        // Рендер реакций
+        let reacsHtml = '<div class="reac-wrap">';
+        if(m.reactions) Object.values(m.reactions).forEach(r => reacsHtml += `<span class="reac">${r}</span>`);
+        reacsHtml += '</div>';
 
-        cont.innerHTML = `
-            <div class="msg-menu">
-                <span onclick="react('${m.id}', '👍')">👍</span>
-                <span onclick="react('${m.id}', '❤️')">❤️</span>
-                <span onclick="react('${m.id}', '🔥')">🔥</span>
-                <span onclick="setRep('${m.id}', '${m.text}')">↩️</span>
+        div.innerHTML = `
+            <div class="msg-actions">
+                <span onclick="addReac('${m.id}', '❤️')">❤️</span>
+                <span onclick="addReac('${m.id}', '🔥')">🔥</span>
+                <span onclick="addReac('${m.id}', '👍')">👍</span>
+                <span onclick="setReply('${m.id}', '${m.text}')">↩️</span>
                 ${isMy ? `<span onclick="db.ref('messages/${m.id}').remove()">🗑️</span>` : ''}
             </div>
-            <div class="bubble" onclick="showMenu(event, '${m.id}')">
-                ${repHtml}${m.text}<span class="time">${m.time}</span>
+            <div class="bubble" onclick="toggleMenu(event, '${m.id}')">
+                ${replyHtml} ${m.text}
             </div>
-            ${reacs}
+            ${reacsHtml}
         `;
-        document.getElementById('chat').appendChild(cont);
+        document.getElementById('chat').appendChild(div);
     }
 
-    function showMenu(e, id) {
+    function toggleMenu(e, id) {
         e.stopPropagation();
-        hideMenus();
-        document.getElementById('m-' + id).classList.add('active');
+        const box = document.getElementById('box-' + id);
+        const isOpen = box.classList.contains('active');
+        closeMenus();
+        if(!isOpen) box.classList.add('active');
     }
 
-    function hideMenus() {
-        document.querySelectorAll('.msg-container').forEach(el => el.classList.remove('active'));
+    function closeMenus() {
+        document.querySelectorAll('.msg-box').forEach(b => b.classList.remove('active'));
     }
 
-    function setRep(id, txt) {
-        replyId = id;
-        document.getElementById('reply-txt').innerText = txt;
-        document.getElementById('reply-line').style.display = 'flex';
-        hideMenus();
+    function setReply(id, txt) {
+        activeReplyId = id;
+        document.getElementById('reply-info').innerText = txt;
+        document.getElementById('reply-preview').style.display = 'flex';
+        closeMenus();
     }
 
     function cancelReply() {
-        replyId = null;
-        document.getElementById('reply-line').style.display = 'none';
+        activeReplyId = null;
+        document.getElementById('reply-preview').style.display = 'none';
     }
 
-    function react(id, e) {
-        db.ref(`messages/${id}/reacts/${myId}`).set(e);
-        hideMenus();
+    function addReac(id, emo) {
+        db.ref(`messages/${id}/reactions/${myId}`).set(emo);
+        closeMenus();
     }
 
-    document.getElementById('msgInput').addEventListener('keypress', e => { if(e.key==='Enter') send(); });
+    document.getElementById('msgInput').addEventListener('keypress', (e) => { if(e.key==='Enter') send(); });
 </script>
 </body>
 </html>
