@@ -2,35 +2,66 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FZ&AL Private Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FZ&AL Private</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        :root { --bg: #0f172a; --chat: #1e293b; --accent: #38bdf8; --text: #f8fafc; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        header { padding: 15px; background: var(--chat); text-align: center; border-bottom: 1px solid #334155; font-weight: bold; color: var(--accent); }
-        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 10px 14px; border-radius: 15px; max-width: 75%; font-size: 0.95rem; line-height: 1.4; position: relative; }
-        .my { align-self: flex-end; background: #0369a1; border-bottom-right-radius: 4px; }
-        .fr { align-self: flex-start; background: #334155; border-bottom-left-radius: 4px; }
-        .input-area { padding: 15px; background: var(--chat); display: flex; gap: 10px; border-top: 1px solid #334155; }
-        input { flex: 1; background: #0f172a; border: 1px solid #475569; padding: 12px; border-radius: 10px; color: white; outline: none; }
-        button { background: var(--accent); border: none; padding: 0 20px; border-radius: 10px; color: #0f172a; font-weight: bold; cursor: pointer; }
+        :root { 
+            --bg: #0b141a; --header: #202c33; --panel: #2a3942; 
+            --my-bubble: #005c4b; --fr-bubble: #202c33; --text: #e9edef; --accent: #00a884;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        
+        header { background: var(--header); padding: 12px 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.4); z-index: 10; }
+        .avatar { width: 40px; height: 40px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        
+        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 4px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-blend-mode: overlay; }
+        
+        .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 8px; position: relative; }
+        .msg { padding: 8px 12px; border-radius: 8px; max-width: 80%; position: relative; font-size: 0.95rem; box-shadow: 0 1px 1px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.1s; }
+        .msg:active { transform: scale(0.98); }
+        
+        .my-wrapper { align-items: flex-end; }
+        .my { background: var(--my-bubble); border-top-right-radius: 0; }
+        
+        .fr-wrapper { align-items: flex-start; }
+        .fr { background: var(--fr-bubble); border-top-left-radius: 0; }
+
+        .reactions { display: flex; gap: 4px; margin-top: -5px; z-index: 2; padding: 0 5px; }
+        .reac-item { background: var(--panel); border-radius: 10px; padding: 2px 6px; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.1); }
+
+        .controls { display: none; position: absolute; top: -30px; background: var(--panel); border-radius: 20px; padding: 5px 10px; gap: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); z-index: 100; }
+        .msg-wrapper:hover .controls, .msg-wrapper:active .controls { display: flex; }
+        .ctrl-btn { cursor: pointer; font-size: 1.1rem; filter: grayscale(1); transition: 0.2s; }
+        .ctrl-btn:hover { filter: grayscale(0); transform: scale(1.2); }
+        .del-btn { color: #ff4b4b; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; margin-left: 5px; }
+
+        .input-area { background: var(--header); padding: 10px 15px; display: flex; gap: 10px; align-items: center; }
+        input { flex: 1; background: var(--panel); border: none; padding: 12px 18px; border-radius: 25px; color: white; outline: none; font-size: 1rem; }
+        .send-btn { background: var(--accent); width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<header>FZ & AL SECRET CHAT</header>
+<header>
+    <div class="avatar">FZ</div>
+    <div>
+        <div style="font-weight: bold;">Личный чат</div>
+        <div style="font-size: 0.7rem; color: var(--accent);">в сети</div>
+    </div>
+</header>
+
 <div id="chat"></div>
 
 <div class="input-area">
-    <input type="text" id="msgInput" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') send()">
-    <button onclick="send()">></button>
+    <input type="text" id="msgInput" placeholder="Сообщение" autocomplete="off">
+    <button class="send-btn" onclick="send()">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+    </button>
 </div>
 
 <script>
-    // Твоя конфигурация Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCIy6k3p5Fy-rlqR4N_wkcFFiHozyodT3I",
         authDomain: "fzandalchat.firebaseapp.com",
@@ -38,45 +69,84 @@
         storageBucket: "fzandalchat.firebasestorage.app",
         messagingSenderId: "863962788461",
         appId: "1:863962788461:web:07adea356754a7a2390564",
-        databaseURL: "https://fzandalchat-default-rtdb.europe-west1.firebasedatabase.app" // Стандартный URL для базы
+        databaseURL: "https://fzandalchat-default-rtdb.europe-west1.firebasedatabase.app"
     };
 
-    // Инициализация
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const chatRef = db.ref("messages");
 
-    // Твой уникальный ID для этого устройства (чтобы чат понимал, где "я", а где "друг")
     const myId = localStorage.getItem('chatUserId') || 'user_' + Math.random().toString(36).substr(2, 9);
     localStorage.setItem('chatUserId', myId);
 
-    // Загрузка сообщений
-    chatRef.limitToLast(100).on("child_added", (snapshot) => {
-        const data = snapshot.val();
-        renderMsg(data.text, data.sender === myId ? 'my' : 'fr');
+    // Слушаем ВСЕ изменения (добавление, удаление, реакции)
+    chatRef.on("value", (snapshot) => {
+        const container = document.getElementById('chat');
+        container.innerHTML = '';
+        snapshot.forEach((child) => {
+            const data = child.val();
+            renderMsg(child.key, data);
+        });
+        container.scrollTop = container.scrollHeight;
     });
 
     function send() {
         const input = document.getElementById('msgInput');
-        const text = input.value.trim();
-        if (text) {
+        if (input.value.trim()) {
             chatRef.push({
                 sender: myId,
-                text: text,
-                timestamp: Date.now()
+                text: input.value,
+                timestamp: Date.now(),
+                reactions: {}
             });
             input.value = "";
         }
     }
 
-    function renderMsg(text, type) {
-        const container = document.getElementById('chat');
-        const div = document.createElement('div');
-        div.className = `msg ${type}`;
-        div.innerText = text;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+    function deleteMsg(id) {
+        if(confirm("Удалить сообщение?")) {
+            db.ref("messages/" + id).remove();
+        }
     }
+
+    function react(id, emoji) {
+        db.ref("messages/" + id + "/reactions/" + myId).set(emoji);
+    }
+
+    function renderMsg(id, data) {
+        const isMy = data.sender === myId;
+        const wrapper = document.createElement('div');
+        wrapper.className = `msg-wrapper ${isMy ? 'my-wrapper' : 'fr-wrapper'}`;
+
+        // Меню управления
+        let controlsHtml = `
+            <div class="controls">
+                <span class="ctrl-btn" onclick="react('${id}', '❤️')">❤️</span>
+                <span class="ctrl-btn" onclick="react('${id}', '😂')">😂</span>
+                <span class="ctrl-btn" onclick="react('${id}', '👍')">👍</span>
+                ${isMy ? `<span class="del-btn" onclick="deleteMsg('${id}')">Удалить</span>` : ''}
+            </div>
+        `;
+
+        // Отрисовка реакций
+        let reactionsHtml = '<div class="reactions">';
+        if(data.reactions) {
+            Object.values(data.reactions).forEach(emoji => {
+                reactionsHtml += `<span class="reac-item">${emoji}</span>`;
+            });
+        }
+        reactionsHtml += '</div>';
+
+        wrapper.innerHTML = `
+            ${controlsHtml}
+            <div class="msg ${isMy ? 'my' : 'fr'}">${data.text}</div>
+            ${reactionsHtml}
+        `;
+        
+        document.getElementById('chat').appendChild(wrapper);
+    }
+
+    document.getElementById('msgInput').addEventListener('keypress', e => { if(e.key === 'Enter') send(); });
 </script>
 </body>
 </html>
