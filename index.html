@@ -3,92 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Audi Premium Fix</title>
+    <title>Audi RS Premium Chat</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         :root { 
-            --tg-bg: #0e1621; --tg-header: #17212b; --tg-my-msg: #2b5278;
-            --tg-fr-msg: #182533; --tg-accent: #2481cc; --tg-text: #f5f5f5;
+            --tg-bg: #0e1621; --tg-header: #17212b; --tg-my: #2b5278;
+            --tg-fr: #182533; --tg-accent: #2481cc; --tg-text: #f5f5f5;
         }
         
-        /* Исправляем прокрутку и выделение */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
         body, html { 
-            margin: 0; padding: 0; height: 100%; 
-            font-family: -apple-system, sans-serif; 
-            background: var(--tg-bg); color: var(--tg-text);
-            -webkit-tap-highlight-color: transparent; /* Убираем синий квадрат при нажатии */
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            font-family: -apple-system, system-ui, Roboto, sans-serif; 
+            background: var(--tg-bg); color: var(--tg-text); overflow: hidden;
         }
 
-        #app-container { display: flex; flex-direction: column; height: 100vh; }
+        #main-layout { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
 
         header { 
-            background: var(--tg-header); padding: 10px 20px; display: flex; align-items: center; gap: 15px; 
-            z-index: 10; flex-shrink: 0;
+            height: 56px; background: var(--tg-header); display: flex; 
+            align-items: center; padding: 0 15px; gap: 12px; flex-shrink: 0;
+            border-bottom: 1px solid rgba(0,0,0,0.3); z-index: 20;
         }
+        .ava { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #ef5350, #b71c1c); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); }
 
-        /* Чат теперь КОРРЕКТНО листается */
+        /* ИДЕАЛЬНЫЙ СКРОЛЛ */
         #chat { 
-            flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; 
-            background: url('https://images.unsplash.com/photo-1614162692292-7ac56d7fd761?q=80&w=1080&auto=format&fit=crop') center/cover fixed;
-            position: relative;
-            -webkit-overflow-scrolling: touch; /* Плавный скролл на iPhone */
+            flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; 
+            flex-direction: column; gap: 4px;
+            background: url('https://images.unsplash.com/photo-1542362567-b05503f3f5f4?q=80&w=1080&auto=format&fit=crop') center/cover no-repeat fixed;
+            position: relative; scroll-behavior: smooth;
         }
-        #chat::before { content: ""; position: fixed; inset: 0; background: rgba(14, 22, 33, 0.8); z-index: 0; }
+        #chat::before { content: ""; position: fixed; inset: 0; background: rgba(14, 22, 33, 0.82); pointer-events: none; }
 
-        .msg-wrapper { display: flex; flex-direction: column; position: relative; z-index: 1; user-select: none; }
-        .msg { 
-            padding: 8px 14px; border-radius: 14px; max-width: 85%; font-size: 0.95rem; 
-            line-height: 1.4; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.3); 
-            cursor: pointer; pointer-events: auto;
+        .msg-container { display: flex; flex-direction: column; margin-bottom: 4px; position: relative; z-index: 5; max-width: 85%; }
+        .my-cont { align-self: flex-end; }
+        .fr-cont { align-self: flex-start; }
+
+        .bubble { 
+            padding: 7px 12px; border-radius: 12px; font-size: 0.95rem; line-height: 1.4;
+            position: relative; cursor: pointer; transition: background 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            word-wrap: break-word;
         }
-        .my-wrapper { align-items: flex-end; }
-        .my { background: var(--tg-my-msg); border-bottom-right-radius: 4px; }
-        .fr-wrapper { align-items: flex-start; }
-        .fr { background: var(--tg-fr-msg); border-bottom-left-radius: 4px; }
+        .my-cont .bubble { background: var(--tg-my); border-bottom-right-radius: 4px; color: white; }
+        .fr-cont .bubble { background: var(--tg-fr); border-bottom-left-radius: 4px; }
 
-        /* Панель инструментов: теперь по клику */
-        .controls { 
-            display: none; position: absolute; top: -45px; background: #1c2836; 
-            border-radius: 12px; padding: 8px; gap: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); z-index: 100; 
+        /* МЕНЮ УПРАВЛЕНИЯ (в стиле контекстного меню) */
+        .msg-menu { 
+            display: none; position: absolute; top: -50px; background: #1c2836; 
+            border-radius: 10px; padding: 5px 10px; gap: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100;
+            border: 1px solid rgba(255,255,255,0.1); align-items: center;
         }
-        .show-controls .controls { display: flex; }
+        .active .msg-menu { display: flex; }
 
-        .ctrl-btn { cursor: pointer; font-size: 1.2rem; }
-        .reply-box { background: rgba(0,0,0,0.2); border-left: 2px solid #fff; padding: 2px 8px; margin-bottom: 4px; border-radius: 3px; font-size: 0.85rem; color: #81b3e0; }
+        .reply-ref { 
+            background: rgba(0,0,0,0.2); border-left: 2px solid #fff; 
+            padding: 3px 8px; margin-bottom: 5px; border-radius: 4px; font-size: 0.8rem; color: #81b3e0;
+        }
 
-        .reactions { display: flex; gap: 4px; margin-top: -8px; z-index: 2; padding: 0 5px; }
-        .reac-item { background: #1c2836; border-radius: 10px; padding: 1px 5px; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.1); }
+        .reac-bar { display: flex; gap: 4px; margin-top: -6px; z-index: 6; }
+        .reac-chip { background: #1c2836; border-radius: 10px; padding: 1px 6px; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.1); }
 
-        .input-container { background: var(--tg-header); z-index: 10; flex-shrink: 0; }
-        .input-area { padding: 10px 15px; display: flex; gap: 10px; align-items: center; }
-        input { flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 1rem; }
-        .send-btn { color: var(--tg-accent); font-weight: bold; cursor: pointer; border: none; background: none; font-size: 1rem; }
-        
-        #reply-preview { display: none; background: rgba(23, 33, 43, 0.95); padding: 5px 20px; border-left: 3px solid var(--tg-accent); justify-content: space-between; align-items: center; }
+        /* ВВОД СООБЩЕНИЯ */
+        .input-wrap { background: var(--tg-header); padding: 8px 12px; flex-shrink: 0; z-index: 20; }
+        #reply-line { display: none; padding: 5px 15px; border-left: 3px solid var(--tg-accent); align-items: center; justify-content: space-between; margin-bottom: 5px; }
+        .input-row { display: flex; align-items: center; gap: 12px; }
+        input { flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 1.05rem; padding: 5px 0; }
+        .btn-send { color: var(--tg-accent); font-weight: 600; cursor: pointer; border: none; background: none; font-size: 1.1rem; }
+
+        /* Время сообщения */
+        .time { font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-left: 8px; float: right; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-<div id="app-container">
+<div id="main-layout">
     <header>
-        <div style="width: 40px; height: 40px; border-radius: 50%; background: #2481cc; display: flex; align-items: center; justify-content: center; font-weight: bold;">A</div>
+        <div class="ava">RS</div>
         <div style="flex:1">
-            <div style="font-weight: 600;">Audi Premium</div>
-            <div style="font-size: 0.75rem; color: #708499;">online</div>
+            <div style="font-weight: 600; font-size: 1rem;">Audi Exclusive</div>
+            <div style="font-size: 0.75rem; color: #708499;">premium connection</div>
         </div>
     </header>
 
-    <div id="chat" onclick="closeAllControls()"></div>
+    <div id="chat" onclick="hideMenus()"></div>
 
-    <div class="input-container">
-        <div id="reply-preview">
-            <div id="reply-text" style="font-size: 0.8rem; color: var(--tg-accent);"></div>
-            <div onclick="cancelReply()" style="color: #708499; padding: 5px;">✕</div>
+    <div class="input-wrap">
+        <div id="reply-line">
+            <div id="reply-txt" style="font-size: 0.85rem; color: var(--tg-accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+            <span onclick="cancelReply()" style="color:#708499; cursor:pointer; padding: 0 10px;">✕</span>
         </div>
-        <div class="input-area">
+        <div class="input-row">
             <input type="text" id="msgInput" placeholder="Сообщение" autocomplete="off">
-            <button class="send-btn" onclick="send()">Отпр.</button>
+            <button class="btn-send" onclick="send()">Отправить</button>
         </div>
     </div>
 </div>
@@ -108,98 +117,91 @@
     const db = firebase.database();
     const chatRef = db.ref("messages");
 
-    let currentReplyId = null;
     const myId = localStorage.getItem('chatUserId') || 'u' + Date.now();
     localStorage.setItem('chatUserId', myId);
+    let replyId = null;
 
-    chatRef.on("value", (snapshot) => {
-        const container = document.getElementById('chat');
-        container.innerHTML = '';
-        const msgs = [];
-        snapshot.forEach(c => msgs.push({id: c.key, ...c.val()}));
-        msgs.forEach(m => renderMsg(m, msgs));
-        container.scrollTop = container.scrollHeight;
+    chatRef.on("value", snap => {
+        const chat = document.getElementById('chat');
+        chat.innerHTML = '';
+        const items = [];
+        snap.forEach(s => items.push({id: s.key, ...s.val()}));
+        items.forEach(m => render(m, items));
+        chat.scrollTop = chat.scrollHeight;
     });
 
     function send() {
-        const input = document.getElementById('msgInput');
-        if (!input.value.trim()) return;
+        const inp = document.getElementById('msgInput');
+        if (!inp.value.trim()) return;
         chatRef.push({
-            sender: myId,
-            text: input.value,
-            timestamp: Date.now(),
-            replyTo: currentReplyId,
-            reactions: {}
+            uid: myId, text: inp.value, 
+            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            rep: replyId, reacts: {}
         });
-        input.value = "";
+        inp.value = "";
         cancelReply();
     }
 
-    function toggleControls(e, id) {
+    function render(m, all) {
+        const isMy = m.uid === myId;
+        const cont = document.createElement('div');
+        cont.className = `msg-container ${isMy ? 'my-cont' : 'fr-cont'}`;
+        cont.id = 'm-' + m.id;
+
+        let repHtml = '';
+        if(m.rep) {
+            const origin = all.find(x => x.id === m.rep);
+            repHtml = `<div class="reply-ref">${origin ? origin.text : 'Удалено'}</div>`;
+        }
+
+        let reacs = '<div class="reac-bar">';
+        if(m.reacts) Object.values(m.reacts).forEach(e => reacs += `<span class="reac-chip">${e}</span>`);
+        reacs += '</div>';
+
+        cont.innerHTML = `
+            <div class="msg-menu">
+                <span onclick="react('${m.id}', '👍')">👍</span>
+                <span onclick="react('${m.id}', '❤️')">❤️</span>
+                <span onclick="react('${m.id}', '🔥')">🔥</span>
+                <span onclick="setRep('${m.id}', '${m.text}')">↩️</span>
+                ${isMy ? `<span onclick="db.ref('messages/${m.id}').remove()">🗑️</span>` : ''}
+            </div>
+            <div class="bubble" onclick="showMenu(event, '${m.id}')">
+                ${repHtml}${m.text}<span class="time">${m.time}</span>
+            </div>
+            ${reacs}
+        `;
+        document.getElementById('chat').appendChild(cont);
+    }
+
+    function showMenu(e, id) {
         e.stopPropagation();
-        const wrapper = document.getElementById('wrap-' + id);
-        const isOpen = wrapper.classList.contains('show-controls');
-        closeAllControls();
-        if (!isOpen) wrapper.classList.add('show-controls');
+        hideMenus();
+        document.getElementById('m-' + id).classList.add('active');
     }
 
-    function closeAllControls() {
-        document.querySelectorAll('.msg-wrapper').forEach(el => el.classList.remove('show-controls'));
+    function hideMenus() {
+        document.querySelectorAll('.msg-container').forEach(el => el.classList.remove('active'));
     }
 
-    function setReply(id, text) {
-        currentReplyId = id;
-        document.getElementById('reply-text').innerText = text;
-        document.getElementById('reply-preview').style.display = 'flex';
-        closeAllControls();
+    function setRep(id, txt) {
+        replyId = id;
+        document.getElementById('reply-txt').innerText = txt;
+        document.getElementById('reply-line').style.display = 'flex';
+        hideMenus();
     }
 
     function cancelReply() {
-        currentReplyId = null;
-        document.getElementById('reply-preview').style.display = 'none';
+        replyId = null;
+        document.getElementById('reply-line').style.display = 'none';
     }
 
-    function react(id, emoji) {
-        db.ref("messages/" + id + "/reactions/" + myId).set(emoji);
-        closeAllControls();
+    function react(id, e) {
+        db.ref(`messages/${id}/reacts/${myId}`).set(e);
+        hideMenus();
     }
 
-    function renderMsg(data, allMsgs) {
-        const isMy = data.sender === myId;
-        const wrapper = document.createElement('div');
-        wrapper.className = `msg-wrapper ${isMy ? 'my-wrapper' : 'fr-wrapper'}`;
-        wrapper.id = 'wrap-' + data.id;
-
-        let replyHtml = '';
-        if(data.replyTo) {
-            const p = allMsgs.find(m => m.id === data.replyTo);
-            replyHtml = `<div class="reply-box">${p ? p.text : 'Удалено'}</div>`;
-        }
-
-        let reactionsHtml = '<div class="reactions">';
-        if(data.reactions) {
-            Object.values(data.reactions).forEach(e => { reactionsHtml += `<span class="reac-item">${e}</span>`; });
-        }
-        reactionsHtml += '</div>';
-
-        wrapper.innerHTML = `
-            <div class="controls">
-                <span class="ctrl-btn" onclick="react('${data.id}', '👍')">👍</span>
-                <span class="ctrl-btn" onclick="react('${data.id}', '❤️')">❤️</span>
-                <span class="ctrl-btn" onclick="react('${data.id}', '🔥')">🔥</span>
-                <span class="ctrl-btn" onclick="setReply('${data.id}', '${data.text}')">↩️</span>
-                ${isMy ? `<span class="ctrl-btn" onclick="db.ref('messages/${data.id}').remove()">🗑️</span>` : ''}
-            </div>
-            <div class="msg ${isMy ? 'my' : 'fr'}" onclick="toggleControls(event, '${data.id}')">
-                ${replyHtml}
-                ${data.text}
-            </div>
-            ${reactionsHtml}
-        `;
-        document.getElementById('chat').appendChild(wrapper);
-    }
-
-    document.getElementById('msgInput').addEventListener('keypress', e => { if(e.key === 'Enter') send(); });
+    document.getElementById('msgInput').addEventListener('keypress', e => { if(e.key==='Enter') send(); });
 </script>
 </body>
 </html>
