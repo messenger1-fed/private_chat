@@ -3,94 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Audi RS Premium</title>
+    <title>Audi Private Chat</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { 
-            margin: 0; background: #080a0c; color: white; 
-            font-family: -apple-system, system-ui, sans-serif;
-            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        :root { 
+            --bg: #000000; --header: #1a1a1a; --panel: #262626; 
+            --my-bubble: #b71c1c; --fr-bubble: #333333; --text: #ffffff; --accent: #ff0000;
         }
-
-        /* Фон с Audi - фиксированный и четкий */
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        header { background: var(--header); padding: 12px 20px; display: flex; align-items: center; gap: 15px; border-bottom: 2px solid var(--accent); z-index: 10; }
+        .avatar { width: 40px; height: 40px; border: 2px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #000; }
+        .avatar img { width: 80%; }
+        
         #chat { 
-            flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px;
-            background: linear-gradient(rgba(8,10,12,0.85), rgba(8,10,12,0.85)), 
-                        url('https://images.unsplash.com/photo-1614162692292-7ac56d7fd761?q=80&w=1080&auto=format&fit=crop');
-            background-size: cover; background-position: center;
+            flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 6px; 
+            background-image: url('https://images.unsplash.com/photo-1603553323144-3d6301a938c4?q=80&w=1000&auto=format&fit=crop'); 
+            background-size: cover; background-position: center; background-attachment: fixed;
         }
+        #chat::before { content: ""; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 0; }
 
-        header { 
-            background: #17212b; padding: 10px 15px; display: flex; align-items: center; gap: 12px;
-            border-bottom: 1px solid #232e3c; flex-shrink: 0;
-        }
-        .avatar { width: 40px; height: 40px; border-radius: 50%; background: #2481cc; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 12px; position: relative; z-index: 1; }
+        .msg { padding: 10px 14px; border-radius: 12px; max-width: 75%; position: relative; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(0,0,0,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.05); }
+        
+        .my-wrapper { align-items: flex-end; }
+        .my { background: var(--my-bubble); border-bottom-right-radius: 2px; }
+        
+        .fr-wrapper { align-items: flex-start; }
+        .fr { background: var(--fr-bubble); border-bottom-left-radius: 2px; }
 
-        /* Стиль сообщений Телеграм */
-        .msg-box { display: flex; flex-direction: column; max-width: 85%; position: relative; margin-bottom: 5px; }
-        .my { align-self: flex-end; }
-        .fr { align-self: flex-start; }
+        /* Ответы в сообщениях */
+        .reply-content { background: rgba(0,0,0,0.2); border-left: 3px solid var(--accent); padding: 4px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 0.8rem; opacity: 0.8; }
 
-        .bubble { 
-            padding: 8px 12px; border-radius: 15px; font-size: 15px; line-height: 1.4; 
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3); cursor: pointer; position: relative;
-        }
-        .my .bubble { background: #2b5278; border-bottom-right-radius: 4px; color: white; }
-        .fr .bubble { background: #182533; border-bottom-left-radius: 4px; color: #f5f5f5; }
+        .reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: -8px; z-index: 2; padding: 0 8px; }
+        .reac-item { background: #1a1a1a; border-radius: 12px; padding: 2px 6px; font-size: 0.8rem; border: 1px solid var(--accent); }
 
-        /* Ответы */
-        .reply-quote { 
-            background: rgba(0,0,0,0.2); border-left: 2px solid #5288b8; 
-            padding: 4px 8px; margin-bottom: 4px; border-radius: 4px; font-size: 13px; color: #add8e6;
-        }
+        /* Панель инструментов при нажатии */
+        .controls { display: none; position: absolute; top: -40px; background: #1a1a1a; border-radius: 25px; padding: 6px 12px; gap: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); z-index: 100; border: 1px solid var(--accent); }
+        .msg-wrapper:active .controls, .msg-wrapper:hover .controls { display: flex; }
+        .ctrl-btn { cursor: pointer; font-size: 1.2rem; transition: 0.2s; }
+        .del-btn { color: #ff4b4b; font-size: 0.7rem; font-weight: bold; padding: 0 5px; border-left: 1px solid #444; }
 
-        /* Реакции */
-        .reac-wrap { display: flex; gap: 3px; margin-top: -6px; padding: 0 8px; z-index: 2; }
-        .reac { background: #1c2836; border-radius: 10px; padding: 1px 6px; font-size: 12px; border: 1px solid #2b5278; }
-
-        /* Меню действий (по клику) */
-        .msg-actions { 
-            display: none; background: #1c2836; border-radius: 12px; padding: 8px; 
-            gap: 12px; position: absolute; top: -45px; right: 0; z-index: 100;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #2b5278;
-        }
-        .active .msg-actions { display: flex; }
-
-        /* Поле ввода */
-        .input-wrap { background: #17212b; padding: 10px; flex-shrink: 0; }
-        #reply-preview { 
-            display: none; background: #17212b; padding: 8px 15px; border-left: 3px solid #2481cc;
-            justify-content: space-between; align-items: center; border-bottom: 1px solid #000;
-        }
-        .input-row { display: flex; align-items: center; gap: 10px; }
-        input { flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 16px; padding: 5px; }
-        .send-btn { color: #2481cc; font-weight: bold; cursor: pointer; border: none; background: none; font-size: 16px; }
-
-        ::-webkit-scrollbar { width: 0; }
+        /* Поле ввода и панель ответа */
+        .input-container { background: var(--header); display: flex; flex-direction: column; z-index: 10; }
+        #reply-preview { display: none; background: #262626; padding: 8px 20px; border-left: 4px solid var(--accent); justify-content: space-between; align-items: center; }
+        .input-area { padding: 12px 15px; display: flex; gap: 10px; align-items: center; }
+        input { flex: 1; background: var(--panel); border: 1px solid #444; padding: 12px 18px; border-radius: 25px; color: white; outline: none; }
+        .send-btn { background: var(--accent); width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: 0.3s; }
+        .send-btn:active { transform: scale(0.9); }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="avatar">RS</div>
+    <div class="avatar"><img src="https://www.audi.com/content/dam/gbp2/experience-audi/audi-brand-world/audi-rings/1920x1080_Ring_white.png" alt="Audi"></div>
     <div>
-        <div style="font-weight: 600;">FZ & AL Premium</div>
-        <div style="font-size: 12px; color: #708499;">online</div>
+        <div style="font-weight: bold; letter-spacing: 1px;">AUDI PRIVATE CONNECT</div>
+        <div id="online-status" style="font-size: 0.7rem; color: #aaa;">шифрование активно</div>
     </div>
 </header>
 
-<div id="chat" onclick="closeMenus()"></div>
+<div id="chat"></div>
 
-<div class="input-wrap">
+<div class="input-container">
     <div id="reply-preview">
-        <div id="reply-info" style="font-size: 13px; color: #2481cc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
-        <div onclick="cancelReply()" style="color: #708499; cursor: pointer; padding-left: 10px;">✕</div>
+        <div id="reply-text" style="font-size: 0.85rem; color: #ccc; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"></div>
+        <div onclick="cancelReply()" style="cursor:pointer; color: var(--accent); font-weight: bold;">✕</div>
     </div>
-    <div class="input-row">
-        <input type="text" id="msgInput" placeholder="Сообщение" autocomplete="off">
-        <button class="send-btn" onclick="send()">Отправить</button>
+    <div class="input-area">
+        <input type="text" id="msgInput" placeholder="Введите сообщение..." autocomplete="off">
+        <button class="send-btn" onclick="send()">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+        </button>
     </div>
 </div>
 
@@ -109,97 +94,93 @@
     const db = firebase.database();
     const chatRef = db.ref("messages");
 
-    const myId = localStorage.getItem('chatUserId') || 'u' + Date.now();
+    let currentReplyId = null;
+    const myId = localStorage.getItem('chatUserId') || 'u_' + Math.random().toString(36).substr(2, 5);
     localStorage.setItem('chatUserId', myId);
-    let activeReplyId = null;
 
-    // СЛУШАЕМ БАЗУ (Вернул старые названия полей text и sender)
-    chatRef.on("value", (snap) => {
-        const chat = document.getElementById('chat');
-        chat.innerHTML = '';
-        const allMsgs = [];
-        snap.forEach(s => allMsgs.push({id: s.key, ...s.val()}));
-        allMsgs.forEach(m => render(m, allMsgs));
-        chat.scrollTop = chat.scrollHeight;
+    chatRef.on("value", (snapshot) => {
+        const container = document.getElementById('chat');
+        container.innerHTML = '';
+        const msgs = [];
+        snapshot.forEach(c => { msgs.push({id: c.key, ...c.val()}); });
+        msgs.forEach(m => renderMsg(m, msgs));
+        container.scrollTop = container.scrollHeight;
     });
 
     function send() {
-        const inp = document.getElementById('msgInput');
-        if (!inp.value.trim()) return;
+        const input = document.getElementById('msgInput');
+        if (!input.value.trim()) return;
+        
         chatRef.push({
             sender: myId,
-            text: inp.value,
-            replyTo: activeReplyId,
+            text: input.value,
+            timestamp: Date.now(),
+            replyTo: currentReplyId,
             reactions: {}
         });
-        inp.value = "";
+        
+        input.value = "";
         cancelReply();
     }
 
-    function render(m, all) {
-        const isMy = m.sender === myId;
-        const div = document.createElement('div');
-        div.className = `msg-box ${isMy ? 'my' : 'fr'}`;
-        div.id = 'box-' + m.id;
-
-        // Рендер ответа
-        let replyHtml = '';
-        if(m.replyTo) {
-            const parent = all.find(x => x.id === m.replyTo);
-            replyHtml = `<div class="reply-quote">${parent ? parent.text : 'Сообщение удалено'}</div>`;
-        }
-
-        // Рендер реакций
-        let reacsHtml = '<div class="reac-wrap">';
-        if(m.reactions) Object.values(m.reactions).forEach(r => reacsHtml += `<span class="reac">${r}</span>`);
-        reacsHtml += '</div>';
-
-        div.innerHTML = `
-            <div class="msg-actions">
-                <span onclick="addReac('${m.id}', '❤️')">❤️</span>
-                <span onclick="addReac('${m.id}', '🔥')">🔥</span>
-                <span onclick="addReac('${m.id}', '👍')">👍</span>
-                <span onclick="setReply('${m.id}', '${m.text}')">↩️</span>
-                ${isMy ? `<span onclick="db.ref('messages/${m.id}').remove()">🗑️</span>` : ''}
-            </div>
-            <div class="bubble" onclick="toggleMenu(event, '${m.id}')">
-                ${replyHtml} ${m.text}
-            </div>
-            ${reacsHtml}
-        `;
-        document.getElementById('chat').appendChild(div);
-    }
-
-    function toggleMenu(e, id) {
-        e.stopPropagation();
-        const box = document.getElementById('box-' + id);
-        const isOpen = box.classList.contains('active');
-        closeMenus();
-        if(!isOpen) box.classList.add('active');
-    }
-
-    function closeMenus() {
-        document.querySelectorAll('.msg-box').forEach(b => b.classList.remove('active'));
-    }
-
-    function setReply(id, txt) {
-        activeReplyId = id;
-        document.getElementById('reply-info').innerText = txt;
+    function setReply(id, text) {
+        currentReplyId = id;
+        document.getElementById('reply-text').innerText = "Ответ на: " + text;
         document.getElementById('reply-preview').style.display = 'flex';
-        closeMenus();
+        document.getElementById('msgInput').focus();
     }
 
     function cancelReply() {
-        activeReplyId = null;
+        currentReplyId = null;
         document.getElementById('reply-preview').style.display = 'none';
     }
 
-    function addReac(id, emo) {
-        db.ref(`messages/${id}/reactions/${myId}`).set(emo);
-        closeMenus();
+    function deleteMsg(id) {
+        if(confirm("Удалить?")) db.ref("messages/" + id).remove();
     }
 
-    document.getElementById('msgInput').addEventListener('keypress', (e) => { if(e.key==='Enter') send(); });
+    function react(id, emoji) {
+        db.ref("messages/" + id + "/reactions/" + myId).set(emoji);
+    }
+
+    function renderMsg(data, allMsgs) {
+        const isMy = data.sender === myId;
+        const wrapper = document.createElement('div');
+        wrapper.className = `msg-wrapper ${isMy ? 'my-wrapper' : 'fr-wrapper'}`;
+
+        let replyHtml = '';
+        if(data.replyTo) {
+            const parent = allMsgs.find(m => m.id === data.replyTo);
+            replyHtml = `<div class="reply-content">${parent ? parent.text : 'Сообщение удалено'}</div>`;
+        }
+
+        let reactionsHtml = '<div class="reactions">';
+        if(data.reactions) {
+            Object.entries(data.reactions).forEach(([uid, emoji]) => {
+                reactionsHtml += `<span class="reac-item">${emoji}</span>`;
+            });
+        }
+        reactionsHtml += '</div>';
+
+        wrapper.innerHTML = `
+            <div class="controls">
+                <span class="ctrl-btn" onclick="react('${data.id}', '❤️')">❤️</span>
+                <span class="ctrl-btn" onclick="react('${data.id}', '😂')">😂</span>
+                <span class="ctrl-btn" onclick="react('${data.id}', '🔥')">🔥</span>
+                <span class="ctrl-btn" onclick="react('${data.id}', '👍')">👍</span>
+                <span class="ctrl-btn" onclick="setReply('${data.id}', '${data.text}')">↩️</span>
+                ${isMy ? `<span class="del-btn" onclick="deleteMsg('${data.id}')">DEL</span>` : ''}
+            </div>
+            <div class="msg ${isMy ? 'my' : 'fr'}">
+                ${replyHtml}
+                ${data.text}
+            </div>
+            ${reactionsHtml}
+        `;
+        document.getElementById('chat').appendChild(wrapper);
+    }
+
+    document.getElementById('msgInput').addEventListener('keypress', e => { if(e.key === 'Enter') send(); });
 </script>
 </body>
 </html>
